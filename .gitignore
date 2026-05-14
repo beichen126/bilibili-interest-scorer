@@ -1,0 +1,31 @@
+# 敏感数据
+credential_cache.json
+.env
+*.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# 构建产物
+dist/
+build/
+*.spec
+*.exe
+
+# 配置目录（本地）
+.bilibili_toolbox/
+
+# IDE / 工具
+.vscode/
+.idea/
+CLAUDE.md
+
+# 用户输出数据
+bilibili_news/data/
+bilibili_judge/data/
+
+# 临时文件
+*.log
+qrcode_*.png
