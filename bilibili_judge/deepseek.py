@@ -95,7 +95,14 @@ def _call_api_urllib(user_prompt: str, api_key: str) -> Optional[int]:
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json; charset=utf-8",
     }
-    req = urllib.request.Request(API_URL, data=payload.encode("utf-8"),
+    body_bytes = payload.encode("utf-8")
+    # 调试: 检查是否有非 ASCII 字符在请求头中
+    for k, v in headers.items():
+        for ch in v:
+            if ord(ch) > 127:
+                print(f"  [DeepSeek DBG] 请求头 {k!r} 包含非 ASCII: {ch!r} (U+{ord(ch):04X}) 位置 {v.index(ch)}")
+                break
+    req = urllib.request.Request(API_URL, data=body_bytes,
                                   headers=headers, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=API_TIMEOUT) as resp:
@@ -112,7 +119,9 @@ def _call_api_urllib(user_prompt: str, api_key: str) -> Optional[int]:
         print(f"  [DeepSeek API] 网络错误: {e.reason}")
         return None
     except Exception as e:
+        import traceback
         print(f"  [DeepSeek API] 请求异常: {e}")
+        traceback.print_exc()
         return None
 
     content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
