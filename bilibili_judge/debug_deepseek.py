@@ -46,9 +46,10 @@ def main():
     print(f"API Key: {key_masked}")
     print(f"Model:   {deepseek.DEFAULT_MODEL}")
     print(f"URL:     {deepseek.API_URL}")
-    print(f"系统提示词长度: {len(deepseek.SYSTEM_PROMPT)} 字符")
-    if deepseek.SYSTEM_PROMPT:
-        print(f"系统提示词前 100 字: {deepseek.SYSTEM_PROMPT[:100]}…")
+    system_prompt = deepseek.get_active_prompt()
+    print(f"系统提示词长度: {len(system_prompt)} 字符")
+    if system_prompt:
+        print(f"系统提示词前 100 字: {system_prompt[:100]}…")
     print()
 
     # 测试调用
@@ -60,7 +61,7 @@ def main():
     payload = {
         "model": deepseek.DEFAULT_MODEL,
         "messages": [
-            {"role": "system", "content": deepseek.SYSTEM_PROMPT or "(空)"},
+            {"role": "system", "content": system_prompt or "(空)"},
             {"role": "user", "content": SAMPLE_PROMPT},
         ],
         "temperature": 0.0,
