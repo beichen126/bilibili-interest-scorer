@@ -4,6 +4,7 @@
 返回纯数字 0-100，不返回 JSON。
 """
 
+import json
 import os
 import re
 import time
@@ -83,22 +84,23 @@ def _parse_score(text: str) -> Optional[int]:
 def _call_api(user_prompt: str, api_key: str) -> Optional[int]:
     """单次 DeepSeek API 调用，返回分数或 None"""
     try:
+        payload = json.dumps({
+            "model": DEFAULT_MODEL,
+            "messages": [
+                {"role": "system", "content": get_active_prompt()},
+                {"role": "user", "content": user_prompt},
+            ],
+            "temperature": 0.0,
+            "max_tokens": 256,
+            "thinking_mode": "non-thinking",
+        }, ensure_ascii=True)
         resp = requests.post(
             API_URL,
             headers={
                 "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
+                "Content-Type": "application/json; charset=utf-8",
             },
-            json={
-                "model": DEFAULT_MODEL,
-                "messages": [
-                    {"role": "system", "content": get_active_prompt()},
-                    {"role": "user", "content": user_prompt},
-                ],
-                "temperature": 0.0,
-                "max_tokens": 256,
-                "thinking_mode": "non-thinking",
-            },
+            data=payload.encode("utf-8"),
             timeout=API_TIMEOUT,
         )
         if resp.status_code != 200:
