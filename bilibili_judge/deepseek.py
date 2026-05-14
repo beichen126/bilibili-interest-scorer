@@ -91,17 +91,16 @@ def _call_api_urllib(user_prompt: str, api_key: str) -> Optional[int]:
         "thinking_mode": "non-thinking",
     }, ensure_ascii=True)
 
+    # 清理 API Key 中的非 ASCII 字符（如省略号等）
+    cleaned_key = "".join(c for c in api_key if ord(c) < 128)
+    if cleaned_key != api_key:
+        print(f"  [DeepSeek] 警告: API Key 含有非 ASCII 字符，已自动清理。请重新设置正确的 Key")
+
     headers = {
-        "Authorization": f"Bearer {api_key}",
+        "Authorization": f"Bearer {cleaned_key}",
         "Content-Type": "application/json; charset=utf-8",
     }
     body_bytes = payload.encode("utf-8")
-    # 调试: 检查是否有非 ASCII 字符在请求头中
-    for k, v in headers.items():
-        for ch in v:
-            if ord(ch) > 127:
-                print(f"  [DeepSeek DBG] 请求头 {k!r} 包含非 ASCII: {ch!r} (U+{ord(ch):04X}) 位置 {v.index(ch)}")
-                break
     req = urllib.request.Request(API_URL, data=body_bytes,
                                   headers=headers, method="POST")
     try:
