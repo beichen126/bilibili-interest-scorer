@@ -78,9 +78,9 @@ def main():
             deepseek.API_URL,
             headers={
                 "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
+                "Content-Type": "application/json; charset=utf-8",
             },
-            json=payload,
+            data=json.dumps(payload, ensure_ascii=True).encode("utf-8"),
             timeout=deepseek.API_TIMEOUT,
         )
 

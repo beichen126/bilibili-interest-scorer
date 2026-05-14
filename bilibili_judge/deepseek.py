@@ -5,16 +5,10 @@
 """
 
 import json
-import os
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional
-
-try:
-    import requests
-except ImportError:
-    raise ImportError("请先安装 requests: pip install requests")
 
 import config
 
@@ -81,54 +75,61 @@ def _parse_score(text: str) -> Optional[int]:
     return None
 
 
-def _call_api(user_prompt: str, api_key: str) -> Optional[int]:
-    """单次 DeepSeek API 调用，返回分数或 None"""
+def _call_api_urllib(user_prompt: str, api_key: str) -> Optional[int]:
+    """单次 DeepSeek API 调用（基于 urllib，避免 requests 的编码问题），返回分数或 None"""
+    import urllib.error
+    import urllib.request
+
+    payload = json.dumps({
+        "model": DEFAULT_MODEL,
+        "messages": [
+            {"role": "system", "content": get_active_prompt()},
+            {"role": "user", "content": user_prompt},
+        ],
+        "temperature": 0.0,
+        "max_tokens": 256,
+        "thinking_mode": "non-thinking",
+    }, ensure_ascii=True)
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json; charset=utf-8",
+    }
+    req = urllib.request.Request(API_URL, data=payload.encode("utf-8"),
+                                  headers=headers, method="POST")
     try:
-        payload = json.dumps({
-            "model": DEFAULT_MODEL,
-            "messages": [
-                {"role": "system", "content": get_active_prompt()},
-                {"role": "user", "content": user_prompt},
-            ],
-            "temperature": 0.0,
-            "max_tokens": 256,
-            "thinking_mode": "non-thinking",
-        }, ensure_ascii=True)
-        resp = requests.post(
-            API_URL,
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json; charset=utf-8",
-            },
-            data=payload.encode("utf-8"),
-            timeout=API_TIMEOUT,
-        )
-        if resp.status_code != 200:
-            body = resp.text[:300]
-            print(f"  [DeepSeek API] HTTP {resp.status_code}: {body}")
-            return None
-        data = resp.json()
-        content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-        # 推理模型（如 deepseek-v4-flash）可能把输出放在 reasoning_content
-        if not isinstance(content, str) or not content.strip():
-            content = data.get("choices", [{}])[0].get("message", {}).get("reasoning_content", "")
-        if not isinstance(content, str) or not content.strip():
-            print(f"  [DeepSeek API] 返回内容空 (content/reasoning_content 均无): {str(data)[:300]}")
-            return None
-        content = content.strip()
-        score = _parse_score(content)
-        if score is None:
-            print(f"  [DeepSeek API] 无法解析: {content[:300]!r}")
-        return score
-    except requests.exceptions.Timeout:
-        print(f"  [DeepSeek API] 请求超时（{API_TIMEOUT}s）")
+        with urllib.request.urlopen(req, timeout=API_TIMEOUT) as resp:
+            body = resp.read().decode("utf-8")
+            if resp.status != 200:
+                print(f"  [DeepSeek API] HTTP {resp.status}: {body[:300]}")
+                return None
+            data = json.loads(body)
+    except urllib.error.HTTPError as e:
+        err_body = e.read().decode("utf-8", errors="replace")[:300]
+        print(f"  [DeepSeek API] HTTP {e.code}: {err_body}")
         return None
-    except requests.exceptions.ConnectionError as e:
-        print(f"  [DeepSeek API] 网络连接失败: {e}")
+    except urllib.error.URLError as e:
+        print(f"  [DeepSeek API] 网络错误: {e.reason}")
         return None
     except Exception as e:
         print(f"  [DeepSeek API] 请求异常: {e}")
         return None
+
+    content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+    # 推理模型（如 deepseek-v4-flash）可能把输出放在 reasoning_content
+    if not isinstance(content, str) or not content.strip():
+        content = data.get("choices", [{}])[0].get("message", {}).get("reasoning_content", "")
+    if not isinstance(content, str) or not content.strip():
+        print(f"  [DeepSeek API] 返回内容空 (content/reasoning_content 均无): {str(data)[:300]}")
+        return None
+    content = content.strip()
+    score = _parse_score(content)
+    if score is None:
+        print(f"  [DeepSeek API] 无法解析: {content[:300]!r}")
+    return score
+
+
+_call_api = _call_api_urllib
 
 
 def analyze_interest(title: str, owner_name: str = "", tag: str = "",
